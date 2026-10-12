@@ -1,0 +1,38 @@
+# GPU workers on dgx.ailab.lan. Start ONE at a time unless memory allows more: the GB10's
+# 128 GB unified memory is shared with Ollama (11434), vLLM (8000) and ComfyUI (8188).
+# The hub serialises GPU runs; each worker also unloads its model after 10 idle minutes.
+x-worker: &worker
+  build: { context: ../../workers/gpu }
+  restart: unless-stopped
+  runtime: nvidia
+  environment:
+    NVIDIA_VISIBLE_DEVICES: all
+    WORKER_IDLE_UNLOAD_S: "600"
+  volumes:
+    - /data/3d-models:/models   # weights cache; check `df -h` first, these are large
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:9000/health', timeout=5)"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+
+services:
+  trellis2:
+    <<: *worker
+    build: { context: ../../workers/gpu, args: { BACKEND: trellis2 } }
+    image: 3d-worker-trellis2:0.1.0
+    ports: ["9001:9000"]
+    environment: { WORKER_BACKEND: trellis2, NVIDIA_VISIBLE_DEVICES: all, WORKER_IDLE_UNLOAD_S: "600" }
+  hunyuan:
+    <<: *worker
+    build: { context: ../../workers/gpu, args: { BACKEND: hunyuan } }
+    image: 3d-worker-hunyuan:0.1.0
+    ports: ["9002:9000"]
+    environment: { WORKER_BACKEND: hunyuan, NVIDIA_VISIBLE_DEVICES: all, WORKER_IDLE_UNLOAD_S: "600" }
+  trellis-text:
+    <<: *worker
+    build: { context: ../../workers/gpu, args: { BACKEND: trellis-text } }
+    image: 3d-worker-trellis-text:0.1.0
+    ports: ["9003:9000"]
+    environment: { WORKER_BACKEND: trellis-text, NVIDIA_VISIBLE_DEVICES: all, WORKER_IDLE_UNLOAD_S: "600" }
+    profiles: ["later"]

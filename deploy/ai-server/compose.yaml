@@ -1,0 +1,44 @@
+# Hub on ai-server.ailab.lan (Dockge stack /opt/stacks/3d-asset-factory), beside img2threejs-service.
+# Proposed URL: http://assets.ailab.lan (DNS + reverse proxy are owner decisions).
+services:
+  hub:
+    build: ../..
+    image: 3d-asset-factory:0.1.0
+    restart: unless-stopped
+    ports: ["8098:8080"]
+    env_file: .env          # HUB_API_TOKEN, HUB_DATABASE_URL; never commit .env
+    environment:
+      HUB_TRELLIS2_URL: http://dgx.ailab.lan:9001
+      HUB_HUNYUAN_URL: http://dgx.ailab.lan:9002
+      HUB_IMG2THREEJS_URL: http://img2threejs.ailab.lan:8099
+    volumes: [hub-data:/var/hub]
+    depends_on: [db]
+  worker-gpu:
+    image: 3d-asset-factory:0.1.0
+    restart: unless-stopped
+    command: ["python", "-m", "hub.worker", "--gpu"]
+    env_file: .env
+    environment:
+      HUB_TRELLIS2_URL: http://dgx.ailab.lan:9001
+      HUB_HUNYUAN_URL: http://dgx.ailab.lan:9002
+    volumes: [hub-data:/var/hub]
+    depends_on: [hub]
+  worker-cpu:
+    image: 3d-asset-factory:0.1.0
+    restart: unless-stopped
+    command: ["python", "-m", "hub.worker", "--cpu"]
+    env_file: .env
+    environment:
+      HUB_IMG2THREEJS_URL: http://img2threejs.ailab.lan:8099
+    volumes: [hub-data:/var/hub]
+    depends_on: [hub]
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    env_file: .env          # POSTGRES_PASSWORD
+    environment: { POSTGRES_DB: hub, POSTGRES_USER: hub }
+    volumes: [hub-pg:/var/lib/postgresql/data]
+
+volumes:
+  hub-data:
+  hub-pg:
