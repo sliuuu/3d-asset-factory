@@ -1,4 +1,4 @@
-import { api, download } from './api.js';
+import { api, download, loadMe, userMenu, wireUserMenu } from './api.js';
 import { createViewer, syncViewers } from './viewer.js';
 
 const app = document.getElementById('app');
@@ -10,6 +10,17 @@ const pill = (cls, text) => `<span class="pill ${esc(cls)}">${esc(text ?? cls)}<
 const VIEWS = ['front', 'back', 'left', 'right', 'top', 'service'];
 const FORMATS = ['glb', 'obj', 'fbx', 'usdz', 'stl', 'ply', 'blend'];
 let disposers = [];
+let me = null;
+
+// Workspace the person is working in (a per-browser convenience; the server checks membership).
+const WS_KEY = 'hubWorkspace';
+function currentWs() {
+  let id = '';
+  try { id = localStorage.getItem(WS_KEY) || ''; } catch { /* private mode */ }
+  return me.workspaces.some((w) => w.id === id) ? id : '';
+}
+function setWs(id) { try { localStorage.setItem(WS_KEY, id); } catch { /* private mode */ } }
+function wsName(id) { return me.workspaces.find((w) => w.id === id)?.name || ''; }
 
 function cleanup() { disposers.forEach((d) => d()); disposers = []; }
 function errorBox(e) { return `<div class="notice bad">${esc(e.message || e)}</div>`; }
@@ -27,25 +38,38 @@ async function route() {
   app.innerHTML = '<p class="muted">Loading…</p>';
   try { await page(id, new URLSearchParams(query)); } catch (e) { app.innerHTML = errorBox(e); }
 }
-window.addEventListener('hashchange', route);
-route();
+async function boot() {
+  try { me = await loadMe(); } catch { return; } // api() already sent a signed-out visitor to /login
+  const ws = me.workspaces;
+  document.getElementById('user').innerHTML = `${ws.length > 1 ? `<select id="ws" title="Workspace">
+      <option value="">All my workspaces</option>${ws.map((w) => `<option value="${w.id}" ${w.id === currentWs() ? 'selected' : ''}>${esc(w.name)}</option>`).join('')}</select>` : ''}
+    ${userMenu(me)}`;
+  wireUserMenu();
+  const sel = document.getElementById('ws');
+  if (sel) sel.onchange = () => { setWs(sel.value); route(); };
+  if (!me.can.creator) document.querySelectorAll('[data-needs=creator]').forEach((el) => el.remove());
+  window.addEventListener('hashchange', route);
+  route();
+}
+boot();
 
 // ---------------- gallery ----------------
 
 async function gallery(_, q) {
   const params = new URLSearchParams();
   for (const k of ['q', 'family', 'site', 'pipeline', 'evidence_class', 'state']) if (q.get(k)) params.set(k, q.get(k));
+  if (currentWs()) params.set('workspace_id', currentWs());
   const [assets, adapters] = await Promise.all([api(`/api/assets?${params}`), api('/api/adapters')]);
   const families = [...new Set(assets.map((a) => a.family).filter(Boolean))].sort();
   app.innerHTML = `
-    <h1>Asset gallery</h1>
+    <h1>Asset gallery ${currentWs() ? `<span class="muted small">${esc(wsName(currentWs()))}</span>` : ''}</h1>
     <form class="row" id="filters">
       <input name="q" placeholder="Search name, family, site…" value="${esc(q.get('q') || '')}" style="min-width:260px" />
       <select name="family"><option value="">All families</option>${families.map((f) => `<option ${q.get('family') === f ? 'selected' : ''}>${esc(f)}</option>`).join('')}</select>
       <select name="pipeline"><option value="">All pipelines</option>${adapters.map((a) => `<option value="${a.name}" ${q.get('pipeline') === a.name ? 'selected' : ''}>${esc(a.label)}</option>`).join('')}</select>
       <select name="evidence_class"><option value="">All evidence</option>${['generated-visual', 'reconstruction', 'parametric', 'authored', 'library'].map((c) => `<option ${q.get('evidence_class') === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
       <button>Filter</button>
-      <a href="#/create"><button type="button" class="primary">+ Create</button></a>
+      ${me.can.creator ? '<a href="#/create"><button type="button" class="primary">+ Create</button></a>' : ''}
     </form>
     <p class="muted small">${assets.length} assets. Generated meshes are provisional bake donors, never geometry of record.</p>
     <div class="grid">${assets.map(card).join('') || '<p class="muted">No assets yet.</p>'}</div>`;
@@ -86,7 +110,7 @@ async function assetPage(id, q) {
   const v = a.versions.find((x) => x.id === vid);
   app.innerHTML = `
     <div class="row" style="justify-content:space-between"><h1>${esc(a.name)}</h1>
-      <div class="row"><a href="#/create?asset=${a.id}"><button class="primary">Generate / import</button></a></div></div>
+      <div class="row">${me.can.creator ? `<a href="#/create?asset=${a.id}"><button class="primary">Generate / import</button></a>` : ''}</div></div>
     <p class="muted">${esc([a.family, a.site, a.library_ref && `library: ${a.library_ref}`].filter(Boolean).join(' · '))}</p>
     ${a.description ? `<p>${esc(a.description)}</p>` : ''}
     <div class="split">
@@ -167,8 +191,8 @@ function versionPanel(a, v) {
     <p class="small muted mono">sha256 ${esc(v.artifacts[0]?.sha256)}</p>
     <h2>Review</h2>
     ${v.reviews.map((r) => `<p class="small">${pill(r.verdict, r.verdict)} <b>${esc(r.reviewer)}</b> ${r.score != null ? `score ${r.score}` : ''} — ${esc(r.notes)}</p>`).join('')}
-    <form id="review">
-      <div class="row"><input name="reviewer" placeholder="Reviewer" required style="flex:1" />
+    ${me.can.reviewer ? `<form id="review">
+      <div class="row"><input name="reviewer" value="${esc(me.user?.email || '')}" ${me.user ? 'readonly title="Reviews are recorded under your account"' : 'placeholder="Reviewer" required'} style="flex:1" />
       <select name="verdict"><option>notes</option><option>pass</option><option>fail</option></select>
       <input name="score" type="number" step="0.1" min="0" max="10" placeholder="Score" style="width:80px" /></div>
       <div class="field" style="margin-top:6px"><label><input type="checkbox" name="logo" /> Logos or trade dress visible (must be stripped)</label>
@@ -176,7 +200,7 @@ function versionPanel(a, v) {
       <textarea name="notes" placeholder="Notes (close-up photo match, hidden side, scale…)"></textarea>
       <div class="row" style="margin-top:6px"><button>Add review</button>
       <select id="state"><option value="">Set state…</option><option>technical_validated</option><option>visual_validated</option><option>deprecated</option></select></div>
-    </form>
+    </form>` : '<p class="small muted">Reviews and state changes need the reviewer role.</p>'}
   </div>`;
 }
 
@@ -198,6 +222,7 @@ function wireVersionPanel(a, v) {
     b.onclick = () => download(`/api/versions/${v.id}/download?format=${b.dataset.f}`, `${a.name}.${b.dataset.f}`).catch((e) => alert(e.message));
   });
   const form = document.getElementById('review');
+  if (!form) return;
   form.onsubmit = async (ev) => {
     ev.preventDefault();
     const f = new FormData(form);
@@ -222,16 +247,20 @@ async function create(_, q) {
   const [assets, adapters] = await Promise.all([api('/api/assets'), api('/api/adapters')]);
   let tab = q.get('tab') || 'multiview';
   const pre = q.get('asset') || '';
+  const wsId = currentWs() || me.workspaces[0]?.id || '';
+  const quota = quotaLine(wsId);
   const tabs = [['multiview', 'Multi-view → 3D'], ['image', 'Image → 3D'], ['text', 'Text → 3D'], ['parametric', 'Parametric'], ['import', 'Import model']];
   const forTab = adapters.filter((a) => a.workflows.includes(tab) || (tab === 'multiview' && a.workflows.includes('image')));
   app.innerHTML = `
     <h1>Create</h1>
+    ${quota ? `<p class="small muted">${quota}</p>` : ''}
     <div class="tabs">${tabs.map(([k, l]) => `<button class="${k === tab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
     <form id="cf" class="split">
       <div class="card">
         <div class="field"><label>Asset</label>
           <select name="asset_id"><option value="">+ New asset…</option>${assets.map((a) => `<option value="${a.id}" ${a.id === pre ? 'selected' : ''}>${esc(a.name)} ${a.site ? `(${esc(a.site)})` : ''}</option>`).join('')}</select>
-          <div class="row" id="newasset" style="margin-top:6px"><input name="new_name" placeholder="New asset name" /><input name="new_family" placeholder="family (genset, crah…)" /><input name="new_site" placeholder="site (HK6)" /></div>
+          <div class="row" id="newasset" style="margin-top:6px"><input name="new_name" placeholder="New asset name" /><input name="new_family" placeholder="family (genset, crah…)" /><input name="new_site" placeholder="site (HK6)" />
+            ${me.workspaces.length > 1 ? `<select name="new_ws">${me.workspaces.map((w) => `<option value="${w.id}" ${w.id === wsId ? 'selected' : ''}>${esc(w.name)}</option>`).join('')}</select>` : ''}</div>
         </div>
         ${tab === 'multiview' ? `<div class="field"><label>Views (4–8 recommended for equipment; Hunyuan3D-2mv uses front/left/back/right)</label>
           <div class="views">${VIEWS.map((v) => `<label class="slot"><img id="p-${v}" alt="" /><input type="file" accept="image/png,image/jpeg,image/webp" name="img-${v}" style="width:100%" />${v}</label>`).join('')}</div></div>` : ''}
@@ -287,7 +316,7 @@ async function create(_, q) {
       let assetId = f.get('asset_id');
       if (!assetId) {
         if (!f.get('new_name')) throw new Error('Name the new asset');
-        assetId = (await api('/api/assets', { method: 'POST', json: { name: f.get('new_name'), family: f.get('new_family'), site: f.get('new_site') } })).id;
+        assetId = (await api('/api/assets', { method: 'POST', json: { name: f.get('new_name'), family: f.get('new_family'), site: f.get('new_site'), workspace_id: f.get('new_ws') || wsId || null } })).id;
       }
       if (tab === 'import') {
         const fd = new FormData();
@@ -320,6 +349,14 @@ async function create(_, q) {
     } catch (e) { out.innerHTML = errorBox(e); }
     go.disabled = false;
   };
+}
+
+function quotaLine(wsId) {
+  const w = me.workspaces.find((x) => x.id === wsId);
+  const parts = [];
+  if (w?.daily_gpu_runs) parts.push(`${esc(w.name)}: ${w.gpu_runs_today} of ${w.daily_gpu_runs} GPU runs used today`);
+  if (me.user?.daily_gpu_runs) parts.push(`you: ${me.user.gpu_runs_today} of ${me.user.daily_gpu_runs}`);
+  return parts.join(' · ');
 }
 
 // ---------------- compare ----------------
@@ -369,9 +406,11 @@ async function comparePage(_, q) {
 
 async function jobs(_, q) {
   const batch = q.get('batch') || '';
+  const mine = q.get('mine') === '1' && me.user;
   const render = async () => {
-    const runs = await api(`/api/runs?limit=200${batch ? `&batch_id=${batch}` : ''}`);
-    app.innerHTML = `<h1>Jobs ${batch ? `<span class="muted small">batch ${esc(batch)}</span>` : ''}</h1>
+    const runs = await api(`/api/runs?limit=200${batch ? `&batch_id=${batch}` : ''}${mine ? '&mine=1' : ''}`);
+    app.innerHTML = `<h1>${mine ? 'My generation history' : 'Jobs'} ${batch ? `<span class="muted small">batch ${esc(batch)}</span>` : ''}</h1>
+      ${me.user ? `<div class="tabs"><a href="#/jobs"><button class="${mine ? '' : 'on'}">All jobs</button></a><a href="#/jobs?mine=1"><button class="${mine ? 'on' : ''}">Mine</button></a></div>` : ''}
       <table><tr><th>Created</th><th>Run</th><th>Kind</th><th>Adapter</th><th>Workflow</th><th>Status</th><th>Asset</th><th>Detail</th></tr>
       ${runs.map((r) => `<tr><td class="small">${new Date(r.created_at).toLocaleString()}</td><td class="mono">${r.id}</td><td>${esc(r.kind)}</td>
         <td>${esc(r.adapter)}</td><td>${esc(r.params.workflow || '')}</td><td>${pill(r.status)}</td>
@@ -392,7 +431,7 @@ async function benchmarks(id) {
   if (id) {
     const rep = await api(`/api/suites/${id}/report`);
     app.innerHTML = `<h1>${esc(rep.suite)}</h1>
-      <div class="row"><button id="runsuite" class="primary">Run suite</button><span class="small muted">Queues every case × pipeline with the case's fixed inputs.</span></div>
+      ${me.can.creator ? `<div class="row"><button id="runsuite" class="primary">Run suite</button><span class="small muted">Queues every case × pipeline with the case's fixed inputs.</span></div>` : ''}
       <table style="margin-top:12px"><tr><th>Asset</th><th>Pipeline</th><th>Tris</th><th>Watertight</th><th>Shells</th><th>Normal strength</th><th>Envelope</th><th>Deviation median / p99</th><th>Time</th><th>Reviews</th><th></th></tr>
       ${rep.rows.map((r) => `<tr><td>${esc(r.asset)}</td><td>${esc(r.pipeline)}</td>
         <td>${num(r.triangles)}</td><td>${r.version_id ? (r.watertight ? 'yes' : 'no') : '—'}</td><td>${num(r.shells)}</td><td>${num(r.normal_map_strength, 4)}</td>
@@ -401,7 +440,8 @@ async function benchmarks(id) {
         <td>${r.seconds ? `${num(r.seconds, 1)} s` : '—'}</td>
         <td class="small">${(r.reviews || []).map((x) => `${esc(x.reviewer)}: ${esc(x.verdict)}${x.score != null ? ` (${x.score})` : ''}`).join('<br>')}</td>
         <td>${r.version_id ? `<a href="#/asset/${r.asset_id}?v=${r.version_id}">open</a>` : ''}</td></tr>`).join('')}</table>`;
-    document.getElementById('runsuite').onclick = async () => {
+    const rs = document.getElementById('runsuite');
+    if (rs) rs.onclick = async () => {
       const res = await api(`/api/suites/${id}/run`, { method: 'POST' });
       location.hash = `#/jobs?batch=${res.batch_id}`;
     };
@@ -410,15 +450,16 @@ async function benchmarks(id) {
   const [suites, adapters, assets] = await Promise.all([api('/api/suites'), api('/api/adapters'), api('/api/assets')]);
   app.innerHTML = `<h1>Benchmarks</h1>
     <table><tr><th>Suite</th><th>Pipelines</th><th>Cases</th></tr>${suites.map((s) => `<tr><td><a href="#/benchmarks/${s.id}">${esc(s.name)}</a><div class="small muted">${esc(s.description)}</div></td><td>${s.pipelines.map(esc).join(', ')}</td><td>${s.cases}</td></tr>`).join('')}</table>
-    <h2>New suite</h2>
+    ${me.can.creator ? `<h2>New suite</h2>
     <form id="sf" class="card">
       <div class="field"><label>Name</label><input name="name" value="FB-1 Arm B — generative donors" style="width:100%" /></div>
       <div class="field"><label>Description</label><input name="description" value="Genset and CRAH; same 4–8 views per tool; envelope fit, bake, score vs Blender-loop result." style="width:100%" /></div>
       <label>Pipelines</label>${adapters.filter((a) => !a.workflows.includes('import') && !a.workflows.includes('parametric')).map((a) => `<label style="color:var(--text)"><input type="checkbox" name="p" value="${a.name}" checked /> ${esc(a.label)}</label>`).join('')}
       <p class="small muted">Add cases (asset + fixed input set + optional reference version) through the API: POST /api/suites/{id}/cases. ${assets.length} assets available.</p>
       <button class="primary">Create suite</button>
-    </form>`;
-  document.getElementById('sf').onsubmit = async (ev) => {
+    </form>` : ''}`;
+  const sf = document.getElementById('sf');
+  if (sf) sf.onsubmit = async (ev) => {
     ev.preventDefault();
     const f = new FormData(ev.target);
     const s = await api('/api/suites', { method: 'POST', json: { name: f.get('name'), description: f.get('description'), pipelines: f.getAll('p') } });
@@ -439,5 +480,5 @@ async function models() {
       <td class="small muted">${esc(a.notes)}</td></tr>`).join('')}</table>
     <h2>Export formats</h2>
     <p>${Object.entries(health.formats).map(([f, ok]) => pill(ok ? 'pass' : 'pending', `${f}${ok ? '' : ' (needs Blender)'}`)).join(' ')}</p>
-    <p class="small muted">Hub ${esc(health.version)}. Add a model by adding an adapter and deploying its worker; see docs/ADDING_A_MODEL.md.</p>`;
+    <p class="small muted">Hub ${esc(health.version)}. Add a model by adding an adapter and deploying its worker; see docs/ADDING_A_MODEL.md.${me.can.admin ? ' Switch pipelines on or off and change worker URLs in <a href="/admin#/services">Admin → Models &amp; services</a>.' : ''}</p>`;
 }

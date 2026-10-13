@@ -15,6 +15,15 @@ class Settings:
     lease_seconds: int = int(os.environ.get("HUB_LEASE_SECONDS", "900"))
     # Shared-secret token for the API. Empty disables auth (dev only).
     api_token: str = field(default_factory=lambda: os.environ.get("HUB_API_TOKEN", ""))
+    # Accounts (docs/ADMIN_AND_AUTH.md). `HUB_AUTH=off` is for local development and needs HUB_DEV=1.
+    auth_enabled: bool = field(default_factory=lambda: os.environ.get("HUB_AUTH", "on").lower() not in ("off", "0", "false"))
+    dev: bool = field(default_factory=lambda: os.environ.get("HUB_DEV", "") == "1")
+    session_hours: int = field(default_factory=lambda: int(os.environ.get("HUB_SESSION_HOURS", "168")))
+    session_idle_hours: int = field(default_factory=lambda: int(os.environ.get("HUB_SESSION_IDLE_HOURS", "12")))
+    cookie_secure: bool = field(default_factory=lambda: os.environ.get("HUB_COOKIE_SECURE", "") == "1")
+    # Creates the first admin on start when no users exist yet.
+    admin_email: str = field(default_factory=lambda: os.environ.get("HUB_ADMIN_EMAIL", ""))
+    admin_password: str = field(default_factory=lambda: os.environ.get("HUB_ADMIN_PASSWORD", ""))
 
     @property
     def db_url(self) -> str:

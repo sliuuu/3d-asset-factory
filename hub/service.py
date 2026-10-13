@@ -11,6 +11,7 @@ from .adapters import ADAPTERS, InputError, PolicyError, check_egress
 from .config import get_settings
 from .envelope import fit as envelope_fit
 from .models import Artifact, Asset, InputSet, Run, Version
+from .runtime_settings import disabled_adapters, effective_settings
 
 
 def _now():
@@ -42,7 +43,8 @@ def ingest_model(db: Session, *, asset: Asset, data: bytes, filename: str, pipel
 
 
 def submit_generation(db: Session, *, asset: Asset, adapter_name: str, workflow: str,
-                      input_set: InputSet, params: dict, batch_id: str = "", suite_case_id: str | None = None) -> Run:
+                      input_set: InputSet, params: dict, batch_id: str = "", suite_case_id: str | None = None,
+                      created_by: str | None = None) -> Run:
     adapter = ADAPTERS.get(adapter_name)
     if adapter is None:
         raise InputError(f"unknown adapter {adapter_name}")
@@ -50,7 +52,7 @@ def submit_generation(db: Session, *, asset: Asset, adapter_name: str, workflow:
         workflow = "image"  # comparison batches: single-image models take the front view
     run = Run(kind="generate", adapter=adapter_name, asset_id=asset.id, input_set_id=input_set.id,
               params={"workflow": workflow, **params}, needs_gpu=int(adapter.needs_gpu),
-              batch_id=batch_id, suite_case_id=suite_case_id)
+              batch_id=batch_id, suite_case_id=suite_case_id, workspace_id=asset.workspace_id, created_by=created_by)
     try:
         check_egress(adapter, input_set.classification)
         adapter.prepare(workflow=workflow, prompt=input_set.prompt, images=input_set.images, params=params)
@@ -89,12 +91,14 @@ def claim(db: Session, worker_id: str, *, gpu: bool | None = None) -> Run | None
 
 
 def execute(db: Session, run: Run) -> None:
-    settings = get_settings()
+    settings = effective_settings(db)  # admin overrides of worker URLs apply without a redeploy
     adapter = ADAPTERS[run.adapter]
     asset = db.get(Asset, run.asset_id)
     input_set = db.get(InputSet, run.input_set_id) if run.input_set_id else None
     params = {k: v for k, v in run.params.items() if k != "workflow"}
     try:
+        if adapter.name in disabled_adapters(db):
+            raise PolicyError(f"{adapter.label} was switched off by an admin after this run was queued")
         check_egress(adapter, input_set.classification if input_set else "internal")
         payload = adapter.prepare(workflow=run.params["workflow"], prompt=input_set.prompt if input_set else "",
                                   images=input_set.images if input_set else [], params=params)

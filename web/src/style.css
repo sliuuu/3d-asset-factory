@@ -56,3 +56,23 @@ th { color: var(--muted); font-weight: 600; }
 .mono { overflow-wrap: anywhere; }
 .thumb.viewer { height: 150px; border: 0; }
 .thumb .hud, .thumb .tools { display: none; }
+.usermenu { margin-left: auto; display: flex; gap: 14px; align-items: center; font-size: 13px; }
+.usermenu .who { color: var(--muted); }
+.usermenu select { padding: 4px 8px; font-size: 13px; }
+.login { max-width: 380px; margin: 12vh auto 0; }
+.login .card { padding: 24px; }
+.login input { width: 100%; }
+.login h1 { margin-bottom: 4px; }
+.secret { background: #3fb95014; border-left: 3px solid var(--ok); padding: 10px 12px; margin: 10px 0; border-radius: 4px; }
+.secret code { display: block; margin: 6px 0; font-family: ui-monospace, Menlo, monospace; font-size: 13px; overflow-wrap: anywhere; color: var(--text); }
+.adminnav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.adminnav a { padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); }
+.adminnav a.on { color: var(--text); border-color: var(--accent); }
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.stat .n { font-size: 22px; font-weight: 700; } .stat .l { color: var(--muted); font-size: 12px; }
+.meter { height: 6px; border-radius: 3px; background: var(--panel2); overflow: hidden; margin-top: 4px; }
+.meter > i { display: block; height: 100%; background: var(--info); }
+.meter > i.hot { background: var(--warn); }
+td input, td select { padding: 4px 6px; }
+.scroll { overflow-x: auto; }

@@ -13,19 +13,57 @@ def glb_bytes(extents=(0.98, 0.57, 0.46), shells=1) -> bytes:
     return scene.export(file_type="glb")
 
 
-@pytest.fixture()
-def client(tmp_path, monkeypatch):
+def _env(tmp_path, monkeypatch):
     monkeypatch.setenv("HUB_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("HUB_TRELLIS2_URL", "http://fake-dgx:9001")
     monkeypatch.setenv("HUB_HUNYUAN_URL", "http://fake-dgx:9002")
-    monkeypatch.delenv("HUB_DATABASE_URL", raising=False)
-    monkeypatch.delenv("HUB_API_TOKEN", raising=False)
+    for k in ("HUB_DATABASE_URL", "HUB_API_TOKEN", "HUB_ADMIN_EMAIL", "HUB_ADMIN_PASSWORD"):
+        monkeypatch.delenv(k, raising=False)
+
+
+@pytest.fixture()
+def client(tmp_path, monkeypatch):
+    """Auth off (development mode): every request acts as an admin."""
+    _env(tmp_path, monkeypatch)
+    monkeypatch.setenv("HUB_AUTH", "off")
+    monkeypatch.setenv("HUB_DEV", "1")
     from hub import db
     db.init_engine(f"sqlite:///{tmp_path / 'hub.db'}")
     from fastapi.testclient import TestClient
     from hub.api import app
     with TestClient(app) as c:
         yield c
+
+
+ADMIN = ("admin@lab.test", "correct horse battery")
+
+
+@pytest.fixture()
+def hub(tmp_path, monkeypatch):
+    """Auth on, with a bootstrap admin. Yields a factory for clients with their own cookie jar."""
+    _env(tmp_path, monkeypatch)
+    monkeypatch.setenv("HUB_AUTH", "on")
+    monkeypatch.setenv("HUB_ADMIN_EMAIL", ADMIN[0])
+    monkeypatch.setenv("HUB_ADMIN_PASSWORD", ADMIN[1])
+    from hub import auth, db
+    auth.login_throttle.clear(*list(auth.login_throttle._fails))
+    db.init_engine(f"sqlite:///{tmp_path / 'hub.db'}")
+    from fastapi.testclient import TestClient
+    from hub.api import app
+    clients = []
+
+    def make(email=None, password=None):
+        c = TestClient(app)
+        c.__enter__()
+        clients.append(c)
+        if email:
+            r = c.post("/api/auth/login", json={"email": email, "password": password})
+            assert r.status_code == 200, r.text
+        return c
+
+    yield make
+    for c in clients:
+        c.__exit__(None, None, None)
 
 
 @pytest.fixture()

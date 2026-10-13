@@ -31,6 +31,8 @@ def init_engine(url: str | None = None):
     _Session = sessionmaker(bind=_engine, expire_on_commit=False)
     from . import models  # noqa: F401  register tables
     Base.metadata.create_all(_engine)
+    from .migrate import upgrade
+    upgrade(_engine)
     return _engine
 
 

@@ -45,6 +45,8 @@ class Asset(Base):
     evidence_refs: Mapped[list] = mapped_column(JSON, default=list)  # registry fact/assertion IDs
     # VDC envelope used for fit checks: {"L": m, "W": m, "H": m, "source": "...", "confirmed": bool}
     envelope: Mapped[dict] = mapped_column(JSON, default=dict)
+    workspace_id: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    created_by: Mapped[str | None] = mapped_column(String(16), nullable=True)  # user id
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     versions: Mapped[list[Version]] = relationship(back_populates="asset", order_by="Version.created_at")
 
@@ -99,6 +101,8 @@ class Run(Base):
     lease_owner: Mapped[str] = mapped_column(String(80), default="")
     lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     events: Mapped[list] = mapped_column(JSON, default=list)  # append-only [{at, msg}]
+    workspace_id: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    created_by: Mapped[str | None] = mapped_column(String(16), nullable=True)  # user id
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -149,3 +153,95 @@ class SuiteCase(Base):
     # Version used as ground truth for deviation scoring (reconstruction or library LOD), if any.
     reference_version_id: Mapped[str | None] = mapped_column(ForeignKey("versions.id"), nullable=True)
     suite: Mapped[Suite] = relationship(back_populates="cases")
+
+
+# ---------- accounts and governance (docs/ADMIN_AND_AUTH.md) ----------
+
+# Ordered: each role has the permissions of the ones before it.
+ROLES = ("viewer", "creator", "reviewer", "admin")
+
+
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[str] = mapped_column(String(16), primary_key=True, default=_id)
+    email: Mapped[str] = mapped_column(String(254), unique=True)  # stored lower-case
+    name: Mapped[str] = mapped_column(String(120), default="")
+    password_hash: Mapped[str] = mapped_column(String(255), default="")
+    role: Mapped[str] = mapped_column(String(16), default="viewer")
+    active: Mapped[int] = mapped_column(Integer, default=1)
+    daily_gpu_runs: Mapped[int] = mapped_column(Integer, default=0)  # 0 = unlimited
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AuthSession(Base):
+    __tablename__ = "auth_sessions"
+    id: Mapped[str] = mapped_column(String(16), primary_key=True, default=_id)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ip: Mapped[str] = mapped_column(String(64), default="")
+    user_agent: Mapped[str] = mapped_column(String(255), default="")
+    revoked: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ApiKey(Base):
+    """`haf_<id>_<secret>`. Only the SHA-256 of the whole key is kept."""
+    __tablename__ = "api_keys"
+    id: Mapped[str] = mapped_column(String(16), primary_key=True, default=_id)
+    name: Mapped[str] = mapped_column(String(120))
+    secret_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)  # the key acts as this user
+    role: Mapped[str] = mapped_column(String(16), default="viewer")  # never above the owner's role
+    workspace_id: Mapped[str | None] = mapped_column(String(16), nullable=True)  # pin to one workspace
+    created_by: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_used_ip: Mapped[str] = mapped_column(String(64), default="")
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Workspace(Base):
+    __tablename__ = "workspaces"
+    id: Mapped[str] = mapped_column(String(16), primary_key=True, default=_id)
+    slug: Mapped[str] = mapped_column(String(60), unique=True)
+    name: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str] = mapped_column(Text, default="")
+    daily_gpu_runs: Mapped[int] = mapped_column(Integer, default=0)  # 0 = unlimited
+    max_queued: Mapped[int] = mapped_column(Integer, default=0)  # 0 = unlimited
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class Membership(Base):
+    __tablename__ = "memberships"
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class AuditEvent(Base):
+    """Append-only. Nothing in the hub updates or deletes these rows."""
+    __tablename__ = "audit_events"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
+    actor: Mapped[str] = mapped_column(String(254), default="")  # email, key name or "legacy-token"
+    user_id: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    key_id: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    action: Mapped[str] = mapped_column(String(60), index=True)  # e.g. auth.login, run.submit
+    target_type: Mapped[str] = mapped_column(String(40), default="")
+    target_id: Mapped[str] = mapped_column(String(64), default="")
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    ip: Mapped[str] = mapped_column(String(64), default="")
+
+
+class SettingOverride(Base):
+    """Admin overrides of environment settings (worker URLs, model ids) and pipeline switches."""
+    __tablename__ = "setting_overrides"
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    value: Mapped[dict] = mapped_column(JSON, default=dict)  # {"v": ...}
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_by: Mapped[str] = mapped_column(String(254), default="")

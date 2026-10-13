@@ -128,13 +128,6 @@ def test_benchmark_suite(client, fake_gpu):
     assert all("deviation_vs_reference" in r for r in report["rows"])
 
 
-def test_auth_token(client, monkeypatch):
-    monkeypatch.setenv("HUB_API_TOKEN", "s3cret")
-    assert client.get("/api/assets").status_code == 401
-    assert client.get("/api/assets", headers={"authorization": "Bearer s3cret"}).status_code == 200
-    assert client.get("/api/health").status_code == 200
-
-
 def test_search(client):
     make_asset(client)
     make_asset(client, name="CRAH", family="crah")
