@@ -1,0 +1,24 @@
+{
+  "_note": "Initial focus from the 3D Asset Generation Site request. Envelopes are VDC-sourced where Notion records them; unconfirmed axes are flagged. IDs link to dt-component-library; the hub does not own these records.",
+  "assets": [
+    {"name": "Cummins C3250 genset (benchmark)", "family": "genset", "site": "HK6",
+     "library_ref": "genset rev 4 (dt-component-library)",
+     "envelope": {"L": 8.9, "W": 3.9, "H": 3.6, "source": "HK06-1GEN_LB_01", "unconfirmed": ["H"]},
+     "tags": ["FB-1", "hero", "power"],
+     "description": "FB-1 Arm B benchmark asset. Hunyuan3D 3.1 single-photo donor measured 12 Oct 2026; height and model identity to confirm against the spec sheet."},
+    {"name": "RPP 168-pole", "family": "rpp", "site": "HK6", "library_ref": "ELEC_RPP_168P rev 2",
+     "tags": ["FB-1", "hero", "power"], "description": "Front-panel labels and breaker legends as print textures."},
+    {"name": "CRAH chilled-water downflow", "family": "crah", "site": "HK6", "library_ref": "MECH_CRAH_CWDownflow 181 v2 rev 2",
+     "tags": ["FB-1", "hero", "cooling"], "description": "Fans faint through grilles at 1.5 m (HO-028)."},
+    {"name": "Chiller (HK6 model TBC)", "family": "chiller", "site": "HK6",
+     "tags": ["FB-1", "hero", "cooling"], "description": "HK6 chiller type unconfirmed; HK4 plant-room photos are the closest references; SV11 chiller as NA fallback."},
+    {"name": "UPS module", "family": "ups", "site": "HK6", "tags": ["power"],
+     "description": "Vendor depth interpretation open (916 mm to door face vs 900 mm vendor)."},
+    {"name": "UPS battery cabinet", "family": "battery", "site": "HK6", "tags": ["power"],
+     "description": "601 mm vs vendor 587 mm; confirm whether vendor depth includes doors and handles."},
+    {"name": "Transformer", "family": "transformer", "site": "HK6", "tags": ["power"],
+     "description": "Gate A pending by design (envelope estimated)."},
+    {"name": "EVAPCO cooling tower", "family": "cooling-tower", "site": "HK6", "tags": ["cooling"],
+     "description": "CT rev 2; configuration evidence open."}
+  ]
+}
