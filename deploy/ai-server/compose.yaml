@@ -10,6 +10,7 @@ services:
     environment:
       # HUB_TRELLIS2_URL: http://dgx.ailab.lan:9001   # deferred (2026-10-13); enable once the DGX build works
       HUB_HUNYUAN_URL: http://dgx.ailab.lan:9002
+      HUB_HUNYUAN_GRADIO_URL: http://10.0.1.106:8080   # live Hunyuan3D-2mv gradio_app.py on the DGX
       HUB_IMG2THREEJS_URL: http://img2threejs.ailab.lan:8099
     volumes: [hub-data:/var/hub]
     depends_on: [db]
@@ -21,6 +22,7 @@ services:
     environment:
       # HUB_TRELLIS2_URL: http://dgx.ailab.lan:9001   # deferred (2026-10-13); enable once the DGX build works
       HUB_HUNYUAN_URL: http://dgx.ailab.lan:9002
+      HUB_HUNYUAN_GRADIO_URL: http://10.0.1.106:8080   # live Hunyuan3D-2mv gradio_app.py on the DGX
     volumes: [hub-data:/var/hub]
     depends_on: [hub]
   worker-cpu:

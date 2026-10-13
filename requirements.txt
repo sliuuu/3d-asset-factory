@@ -10,3 +10,4 @@ numpy>=1.26
 scipy>=1.13
 networkx>=3.3
 pillow>=10.4
+gradio_client>=1.4
