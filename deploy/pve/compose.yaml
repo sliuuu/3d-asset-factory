@@ -1,0 +1,36 @@
+# Hub on a Proxmox VM (proposed: pve4, local storage). Generation stays on the DGX.
+# Replaces deploy/ai-server for now: ai-server is powered down to save power and cooling (2026-10-13).
+# Proposed URL: http://assets.ailab.lan:8098 (DNS record is an owner decision).
+services:
+  hub:
+    build: ../..
+    image: 3d-asset-factory:0.1.0
+    restart: unless-stopped
+    ports: ["8098:8080"]
+    env_file: .env          # HUB_API_TOKEN, HUB_DATABASE_URL; never commit .env
+    environment:
+      HUB_HUNYUAN_GRADIO_URL: http://10.0.1.106:8080   # live Hunyuan3D-2mv gradio_app.py on the DGX
+    volumes: [hub-data:/var/hub]
+    depends_on: [db]
+  worker-gpu:
+    # Dispatches to the DGX over HTTP; this container needs no GPU.
+    image: 3d-asset-factory:0.1.0
+    restart: unless-stopped
+    command: ["python", "-m", "hub.worker", "--gpu"]
+    env_file: .env
+    environment:
+      HUB_HUNYUAN_GRADIO_URL: http://10.0.1.106:8080
+      # HUB_TRELLIS2_URL: http://dgx.ailab.lan:9001   # deferred (2026-10-13)
+    volumes: [hub-data:/var/hub]
+    depends_on: [hub]
+  # worker-cpu (img2threejs) is left out: img2threejs-service lives on ai-server, which is off.
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    env_file: .env          # POSTGRES_PASSWORD
+    environment: { POSTGRES_DB: hub, POSTGRES_USER: hub }
+    volumes: [hub-pg:/var/lib/postgresql/data]
+
+volumes:
+  hub-data:
+  hub-pg:

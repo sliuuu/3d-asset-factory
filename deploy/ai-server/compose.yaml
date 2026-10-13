@@ -1,3 +1,4 @@
+# SUPERSEDED for now: ai-server is powered down (2026-10-13). Use deploy/pve/.
 # Hub on ai-server.ailab.lan (Dockge stack /opt/stacks/3d-asset-factory), beside img2threejs-service.
 # Proposed URL: http://assets.ailab.lan (DNS + reverse proxy are owner decisions).
 services:
