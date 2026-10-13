@@ -30,12 +30,30 @@ target laptops (Eval Harness rule).
 
 ## Operations
 
-- Health: `GET /api/health` (adapter availability, export formats).
+- Health: `GET /api/health` (adapter availability, export formats; no sign-in needed). Admins get
+  queue, worker, storage and session detail at Admin → Overview (`GET /api/admin/health`).
 - Stuck run: runs hold a lease (`HUB_LEASE_SECONDS`, default 900 s); an expired lease is re-claimed.
 - Free DGX memory: `curl -X POST dgx.ailab.lan:9001/unload`. Workers also unload after 10 idle minutes.
 - FBX / USDZ / .blend exports need Blender in the hub image (`BLENDER_BIN`); without it they report
   unavailable rather than producing a lossy substitute.
 - Backups: Postgres volume `hub-pg` and blob volume `hub-data` (content-addressed, SHA-256 keyed).
+
+## Accounts (from P1)
+
+The hub needs a signed-in account for everything except `/api/health`. Before the first start of
+this version on an existing hub (VM 107):
+
+1. Create the first admin, either by setting `HUB_ADMIN_EMAIL` and `HUB_ADMIN_PASSWORD` in `.env`
+   for one start (they only act while no users exist; remove them afterwards), or with
+   `docker compose … exec hub python -m hub.users create --email you@equinix.com --role admin`.
+2. Start the hub. The database is upgraded in place: existing assets and runs move to the
+   `default` workspace.
+3. Sign in at `/login`, open `/admin`, add people and issue API keys for scripts.
+4. Remove `HUB_API_TOKEN` from `.env` once nothing uses it. Until then it still works as an admin
+   credential and the Admin overview shows a warning.
+5. Once the hub is behind TLS, set `HUB_COOKIE_SECURE=1`.
+
+Lost the only admin password: `python -m hub.users reset-password --email …` on the hub host.
 
 ## Governance
 

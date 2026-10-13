@@ -49,6 +49,7 @@ catalog/        Initial HK6 / FB-1 catalog (genset, RPP, CRAH, chiller, UPS, bat
 python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
 (cd web && npm install && npm run build)
 export HUB_DATA_DIR=./data HUB_TRELLIS2_URL=http://127.0.0.1:9001 HUB_HUNYUAN_URL=http://127.0.0.1:9001
+export HUB_ADMIN_EMAIL=you@equinix.com HUB_ADMIN_PASSWORD='at least 12 chars'   # first admin
 uvicorn workers.mock.server:app --port 9001 &     # mock GPU worker
 uvicorn hub.api:app --port 8080 &
 python -m hub.seed                                 # initial catalog
@@ -57,6 +58,13 @@ python -m hub.worker --gpu                         # dispatcher (Ctrl-C to stop)
 ```
 
 Tests: `pip install pytest && python -m pytest -q`
+
+## Accounts and administration
+
+People sign in at `/login`. The homepage is only the creation workflow; users, roles, workspaces,
+quotas, API keys, pipeline settings, audit, usage and health live in the Admin portal at `/admin`.
+See [docs/ADMIN_AND_AUTH.md](docs/ADMIN_AND_AUTH.md), which also reviews what we took from the
+Hunyuan3D site.
 
 ## Deploy
 

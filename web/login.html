@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign in · 3D Asset Factory</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <main class="login">
+    <div class="card">
+      <h1>3D Asset Factory <span class="muted small">lab</span></h1>
+      <p class="muted small">Sign in with your Factory account.</p>
+      <div id="setup"></div>
+      <form id="login">
+        <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" required autofocus /></div>
+        <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required /></div>
+        <button class="primary" style="width:100%">Sign in</button>
+        <div id="err"></div>
+      </form>
+      <p class="muted small" style="margin-top:14px">No account, or locked out? Ask a Factory admin. Accounts are created in the Admin portal.</p>
+    </div>
+  </main>
+  <script type="module" src="/src/login.js"></script>
+</body>
+</html>
