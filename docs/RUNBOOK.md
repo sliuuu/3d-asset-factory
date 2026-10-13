@@ -11,6 +11,24 @@
 The DGX hosts generation; it does not judge browser delivery. Measure viewer performance on the
 target laptops (Eval Harness rule).
 
+## Fast path: the live DGX Hunyuan3D (current plan, 2026-10-13)
+
+TRELLIS.2 is deferred. Hunyuan3D-2mv has been running on the DGX since 2026-10-12. It uses Tencent's
+`gradio_app.py` from `~/3dstack` (venv `envs/hunyuan3d`) in tmux session `hyapp`, at
+`--host 10.0.1.106 --port 8080 --disable_tex`, so it produces shape only (no texture).
+
+1. Check it is up: `curl -s -o /dev/null -w '%{http_code}' http://10.0.1.106:8080/config` should return 200.
+   It runs in tmux, not systemd, so after a DGX reboot restart it by hand from `~/3dstack/README.md`.
+2. `HUB_HUNYUAN_GRADIO_URL` is already set in `deploy/ai-server/compose.yaml`. The adapter reads the
+   app's endpoint list (`/shape_generation`) and fills the multi-view inputs it finds there.
+3. Bring up the hub (step 5 below). The Models page shows "Hunyuan3D-2mv (DGX, live)".
+4. Smoke test: Create → Multi-view, with front/left/back/right public brand-library photos. Tick that
+   adapter and Queue. Expect about 2 minutes per run and about 6 GB of GPU memory (3dstack README).
+5. Memory: qwen3:30b-a3b takes about 45 GB when Ollama reloads it. That leaves roughly 13 GB available,
+   which is enough for 2mv but not for TRELLIS.2.
+
+An api_server.py adapter (`HUB_HUNYUAN_API_URL`) also exists, for a Hunyuan3D started that way.
+
 ## First deployment checklist (P1)
 
 1. **DGX memory.** `nvidia-smi` and `docker ps`. The GB10's 128 GB is shared with Ollama, vLLM and

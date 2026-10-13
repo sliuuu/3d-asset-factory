@@ -11,6 +11,13 @@ class Settings:
     trellis2_url: str = field(default_factory=lambda: os.environ.get("HUB_TRELLIS2_URL", ""))
     trellis_text_url: str = field(default_factory=lambda: os.environ.get("HUB_TRELLIS_TEXT_URL", ""))
     hunyuan_url: str = field(default_factory=lambda: os.environ.get("HUB_HUNYUAN_URL", ""))
+    # An existing Hunyuan3D deployment running Tencent's upstream api_server.py (default port 8081).
+    hunyuan_api_url: str = field(default_factory=lambda: os.environ.get("HUB_HUNYUAN_API_URL", ""))
+    hunyuan_api_model: str = field(default_factory=lambda: os.environ.get("HUB_HUNYUAN_API_MODEL", ""))
+    # The lab's live Hunyuan3D (Tencent gradio_app.py on the DGX, 2mv, shape only), e.g. http://10.0.1.106:8080
+    hunyuan_gradio_url: str = field(default_factory=lambda: os.environ.get("HUB_HUNYUAN_GRADIO_URL", ""))
+    hunyuan_gradio_model: str = field(default_factory=lambda: os.environ.get("HUB_HUNYUAN_GRADIO_MODEL", "tencent/Hunyuan3D-2mv"))
+    hunyuan_gradio_api: str = field(default_factory=lambda: os.environ.get("HUB_HUNYUAN_GRADIO_API", "/shape_generation"))
     img2threejs_url: str = field(default_factory=lambda: os.environ.get("HUB_IMG2THREEJS_URL", "http://img2threejs.ailab.lan:8099"))
     lease_seconds: int = int(os.environ.get("HUB_LEASE_SECONDS", "900"))
     # Shared-secret token for the API. Empty disables auth (dev only).
