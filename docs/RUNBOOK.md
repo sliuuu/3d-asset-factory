@@ -11,6 +11,16 @@
 The DGX hosts generation; it does not judge browser delivery. Measure viewer performance on the
 target laptops (Eval Harness rule).
 
+## Fast path: an existing Hunyuan3D server (current plan, 2026-10-13)
+
+TRELLIS.2 is deferred. If Hunyuan3D already runs in the lab with Tencent's `api_server.py`:
+
+1. Find it: `ss -tlnp | grep 8081` or `docker ps` on the host; `curl -s -o /dev/null -w '%{http_code}' -X POST http://<host>:8081/generate -H 'content-type: application/json' -d '{}'`
+   should answer (a 4xx/5xx for the empty body is fine; a refused connection is not).
+2. Set `HUB_HUNYUAN_API_URL=http://<host>:8081` and `HUB_HUNYUAN_API_MODEL` in `deploy/ai-server/.env`.
+3. Bring up the hub (step 5 below). The Models page shows "Hunyuan3D (existing lab server)" as available.
+4. Smoke test: Create → Image, one public brand-library photo, tick that adapter, Queue.
+
 ## First deployment checklist (P1)
 
 1. **DGX memory.** `nvidia-smi` and `docker ps`. The GB10's 128 GB is shared with Ollama, vLLM and

@@ -1,5 +1,6 @@
 """Adapter registry. To add a model: add one entry here and deploy its worker."""
 from .base import Adapter, InputError, PolicyError, check_egress
+from .hunyuan_api import HunyuanApiAdapter
 from .img2threejs import Img2ThreejsAdapter
 from .remote import RemoteGpuAdapter
 
@@ -21,6 +22,13 @@ ADAPTERS: dict[str, Adapter] = {a.name: a for a in [
         name="hunyuan3d-2.1", label="Hunyuan3D-2.1", workflows=("image",), licence=HUNYUAN_LICENCE,
         host="DGX Spark", url_setting="hunyuan_url", model_id="tencent/Hunyuan3D-2.1",
         notes="Shape + PBR paint.",
+    ),
+    HunyuanApiAdapter(
+        name="hunyuan3d-api", label="Hunyuan3D (existing lab server)", workflows=("image",),
+        licence=HUNYUAN_LICENCE, host="lab (upstream api_server.py)", url_setting="hunyuan_api_url",
+        model_id="tencent/Hunyuan3D-2.1",
+        notes="Calls an already-running Hunyuan3D api_server.py. One image in (front view of a set); "
+              "set HUB_HUNYUAN_API_MODEL to the checkpoint it serves so provenance is right.",
     ),
     RemoteGpuAdapter(
         name="hunyuan3d-2mv", label="Hunyuan3D-2mv", workflows=("multiview",), licence=HUNYUAN_LICENCE,

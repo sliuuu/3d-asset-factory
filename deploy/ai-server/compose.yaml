@@ -8,7 +8,7 @@ services:
     ports: ["8098:8080"]
     env_file: .env          # HUB_API_TOKEN, HUB_DATABASE_URL; never commit .env
     environment:
-      HUB_TRELLIS2_URL: http://dgx.ailab.lan:9001
+      # HUB_TRELLIS2_URL: http://dgx.ailab.lan:9001   # deferred (2026-10-13); enable once the DGX build works
       HUB_HUNYUAN_URL: http://dgx.ailab.lan:9002
       HUB_IMG2THREEJS_URL: http://img2threejs.ailab.lan:8099
     volumes: [hub-data:/var/hub]
@@ -19,7 +19,7 @@ services:
     command: ["python", "-m", "hub.worker", "--gpu"]
     env_file: .env
     environment:
-      HUB_TRELLIS2_URL: http://dgx.ailab.lan:9001
+      # HUB_TRELLIS2_URL: http://dgx.ailab.lan:9001   # deferred (2026-10-13); enable once the DGX build works
       HUB_HUNYUAN_URL: http://dgx.ailab.lan:9002
     volumes: [hub-data:/var/hub]
     depends_on: [hub]

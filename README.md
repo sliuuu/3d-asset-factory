@@ -24,6 +24,7 @@ PRD and reconciliation: Notion, Portfolio Registry → *3D Asset Factory Hub*.
 | Adapter | Workflow | Licence | Host |
 |---|---|---|---|
 | TRELLIS.2-4B | image → 3D (front view of a set) | MIT | DGX Spark (ARM64 build unverified) |
+| Hunyuan3D (existing lab server) | image → 3D (front view of a set) | Tencent Hunyuan Community (excl. EU/UK/KR) | any host running Tencent's `api_server.py` (`HUB_HUNYUAN_API_URL`) |
 | Hunyuan3D-2mv | multi-view (front/left/back/right) → 3D | Tencent Hunyuan Community (excl. EU/UK/KR) | DGX Spark |
 | Hunyuan3D-2.1 | image → 3D + PBR paint | same | DGX Spark |
 | TRELLIS text-xlarge | text → 3D (props, robots, people) | MIT | DGX Spark |
