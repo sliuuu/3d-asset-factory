@@ -44,4 +44,12 @@ docker compose up -d --build
 curl -s localhost:8098/api/health
 ```
 
+The web UI asks for the hub API token on first use and remembers it per browser. To read it later:
+
+```bash
+ssh 10.10.0.107 'sudo docker exec $(sudo docker ps --format "{{.Names}}" | grep -m1 -- -hub-) printenv HUB_API_TOKEN'
+```
+
+Leaving `HUB_API_TOKEN` empty in `.env` turns the check off (LAN-only test use).
+
 Then run the smoke test in `docs/RUNBOOK.md` ("Fast path: the live DGX Hunyuan3D").
