@@ -23,13 +23,16 @@ Constraints that come with any cluster node:
 - **Use local storage, not Ceph.** Ceph has one failed OSD; keep the hub's disk off it.
 - **pve4's single 1G NIC also carries corosync and the Tailscale path home.** Hub traffic (images
   in, GLBs out) is light, but don't run bulk imports through it.
-- **DNS.** pve1 to pve4 resolve `.ailab.lan` only since 2026-09-21; use the DGX IP until a
-  `assets.ailab.lan` record exists.
+- **DNS.** No `assets.ailab.lan` record yet (it needs a VyOS edit); use the IPs.
 
-## VM
+## VM (as built 2026-10-13)
 
-2 vCPU, 4 GB RAM, 40 GB disk on pve4 local storage, Debian 13, Docker Engine with the compose plugin.
-Check the homelab repo's guest conventions (VMID range, template, Ansible role, backup job) first.
+VM 107 `asset-hub` on pve4 `local-lvm`: 2 vCPU, 4 GB RAM, 40 GB disk, Ubuntu 24.04, `10.10.0.107` on
+SDN `vnet0`. Built with the homelab `vm-create.sh` path (clone template 9000 on pve1, migrate to pve4),
+Docker from the homelab Ansible `docker` role. Hub URL: `http://10.10.0.107:8098`.
+
+**Set the CPU type to `x86-64-v2-AES`.** Clones of template 9000 get `kvm64`, which lacks x86-64-v2;
+NumPy aborts on it and the hub crash-loops.
 
 ## Deploy
 
